@@ -20,6 +20,8 @@ namespace pinball
         private float _rightAngle = MathHelper.ToRadians(180 - RESTANGLE);
         private float _rotSpeed = MathHelper.ToRadians(30);
 
+        FireworkDemo _fireworkDemo;
+
         private KeyboardState _prevKeyState;
 
         private List<Particle> _particles = new List<Particle>();
@@ -35,6 +37,8 @@ namespace pinball
         {
             // TODO: Add your initialization logic here
             _prevKeyState = Keyboard.GetState();
+            _fireworkDemo = new FireworkDemo();
+            Window.Title = "fireworks :D";
             base.Initialize();
         }
 
@@ -43,6 +47,7 @@ namespace pinball
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
             // TODO: use this.Content to load your game content here
+            _fireworkDemo.LoadContent(Content);
             _ballTexture = Content.Load<Texture2D>("ball");
             _flipperTexture = Content.Load<Texture2D>("flipper");
         }
@@ -59,6 +64,7 @@ namespace pinball
             {
                 p.Step(1);
             }
+            _fireworkDemo.Update((float)1/30);
             base.Update(gameTime);
         }
 
@@ -84,6 +90,10 @@ namespace pinball
             if (IsKeyDownEdge(Keys.F, keystate))
             {
                 Fire();
+            }
+            if (IsKeyDownEdge(Keys.H, keystate))
+            {
+                _fireworkDemo.Create(1, null, Color.White);
             }
             _prevKeyState = keystate;
         }
@@ -111,15 +121,17 @@ namespace pinball
 
         protected override void Draw(GameTime gameTime)
         {
-            GraphicsDevice.Clear(Color.CornflowerBlue);
+            GraphicsDevice.Clear(Color.Black);
 
             // TODO: Add your drawing code here
             _spriteBatch.Begin();
-            _spriteBatch.Draw(_ballTexture, new Rectangle(0, 0, 64, 64), Color.White);
-            _spriteBatch.Draw(_flipperTexture, new Rectangle(100, 100, 128, 31), null, Color.White, _leftAngle, new Vector2(12, 16), SpriteEffects.None, 1);
-            _spriteBatch.Draw(_flipperTexture, new Rectangle(400, 100, 128, 31), null, Color.White, _rightAngle, new Vector2(12, 16), SpriteEffects.None, 1);
-            DrawParticles();
+            //_spriteBatch.Draw(_ballTexture, new Rectangle(0, 0, 64, 64), Color.White);
+            //_spriteBatch.Draw(_flipperTexture, new Rectangle(100, 100, 128, 31), null, Color.White, _leftAngle, new Vector2(12, 16), SpriteEffects.None, 1);
+            //_spriteBatch.Draw(_flipperTexture, new Rectangle(400, 100, 128, 31), null, Color.White, _rightAngle, new Vector2(12, 16), SpriteEffects.None, 1);
+            //DrawParticles();
+            _fireworkDemo.Draw(_spriteBatch);
             _spriteBatch.End();
+
 
             base.Draw(gameTime);
         }
@@ -130,6 +142,11 @@ namespace pinball
             {
                 _spriteBatch.Draw(p.Texture, new Rectangle((int)p.Position.X, (int)p.Position.Y, 64, 64), Color.White);
             }
+        }
+
+        private void DrawFireworks()
+        {
+
         }
 
     }

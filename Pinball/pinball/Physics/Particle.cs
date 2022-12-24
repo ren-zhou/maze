@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 
 namespace pinball.Physics
 {
@@ -29,13 +30,14 @@ namespace pinball.Physics
             Damping = dampening;
             InvMass = invMass;
             Texture = texture;
+            
         }
 
         public void Step(float duration)
         {
             // should be called every game frame
             Position += Velocity * duration;
-            Velocity = Damping * Velocity + Acceleration * duration;
+            Velocity = MathF.Pow(Damping, duration) * Velocity + Acceleration * duration;
         }
 
     }
