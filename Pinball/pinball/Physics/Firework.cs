@@ -24,7 +24,6 @@ namespace pinball.Physics
             Age = _random.NextSingle() * (rule.MaxAge - rule.MinAge) + rule.MinAge;
             Velocity.X = _random.NextSingle() * (rule.MaxVelocity.X - rule.MinVelocity.X) + rule.MinVelocity.X;
             Velocity.Y = _random.NextSingle() * (rule.MaxVelocity.Y - rule.MinVelocity.Y) + rule.MinVelocity.Y;
-            Debug.WriteLine(Velocity.ToString());
             Damping = rule.Damping;
             Acceleration = new Vector2(0, 20);
             InvMass = 1;

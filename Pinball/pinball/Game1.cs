@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Input;
 using pinball.Physics;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace pinball
 {
@@ -19,8 +20,8 @@ namespace pinball
         private float _leftAngle = MathHelper.ToRadians(RESTANGLE);
         private float _rightAngle = MathHelper.ToRadians(180 - RESTANGLE);
         private float _rotSpeed = MathHelper.ToRadians(30);
-
-        FireworkDemo _fireworkDemo;
+        private LevelMap _levelMap;
+        private Level _level;
 
         private KeyboardState _prevKeyState;
 
@@ -29,6 +30,7 @@ namespace pinball
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this);
+            _graphics.PreferMultiSampling = false;
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
         }
@@ -37,8 +39,9 @@ namespace pinball
         {
             // TODO: Add your initialization logic here
             _prevKeyState = Keyboard.GetState();
-            _fireworkDemo = new FireworkDemo();
-            Window.Title = "fireworks :D";
+            _level = new Level();
+            _levelMap = new LevelMap(GraphicsDevice);
+            Window.Title = "Collision";
             base.Initialize();
         }
 
@@ -47,7 +50,7 @@ namespace pinball
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
             // TODO: use this.Content to load your game content here
-            _fireworkDemo.LoadContent(Content);
+            _level.LoadContent(Content);
             _ballTexture = Content.Load<Texture2D>("ball");
             _flipperTexture = Content.Load<Texture2D>("flipper");
         }
@@ -59,12 +62,10 @@ namespace pinball
 
             // TODO: Add your update logic here
 
-            ProcessInput();
-            foreach (Particle p in _particles)
-            {
-                p.Step(1);
-            }
-            _fireworkDemo.Update((float)1/30);
+            //ProcessInput(); 
+            _level.Update((float)1 / 30);
+
+
             base.Update(gameTime);
         }
 
@@ -86,14 +87,6 @@ namespace pinball
             else
             {
                 MoveRight(-1);
-            }
-            if (IsKeyDownEdge(Keys.F, keystate))
-            {
-                Fire();
-            }
-            if (IsKeyDownEdge(Keys.H, keystate))
-            {
-                _fireworkDemo.Create(1, null, Color.White);
             }
             _prevKeyState = keystate;
         }
@@ -125,29 +118,16 @@ namespace pinball
 
             // TODO: Add your drawing code here
             _spriteBatch.Begin();
+            _level.Draw(_spriteBatch);
+            _levelMap.Draw(_spriteBatch);
             //_spriteBatch.Draw(_ballTexture, new Rectangle(0, 0, 64, 64), Color.White);
             //_spriteBatch.Draw(_flipperTexture, new Rectangle(100, 100, 128, 31), null, Color.White, _leftAngle, new Vector2(12, 16), SpriteEffects.None, 1);
             //_spriteBatch.Draw(_flipperTexture, new Rectangle(400, 100, 128, 31), null, Color.White, _rightAngle, new Vector2(12, 16), SpriteEffects.None, 1);
             //DrawParticles();
-            _fireworkDemo.Draw(_spriteBatch);
             _spriteBatch.End();
 
 
             base.Draw(gameTime);
         }
-
-        private void DrawParticles()
-        {
-            foreach (Particle p in _particles)
-            {
-                _spriteBatch.Draw(p.Texture, new Rectangle((int)p.Position.X, (int)p.Position.Y, 64, 64), Color.White);
-            }
-        }
-
-        private void DrawFireworks()
-        {
-
-        }
-
     }
 }
