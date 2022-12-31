@@ -17,19 +17,21 @@ namespace pinball.Physics
         public List<Platform> Platforms;
         public List<Actor> Actors;
         private Texture2D _platformTexture;
-
-        public Level()
+        private LevelMap _layout;
+        private Texture2D _playerSprite;
+        public Level(GraphicsDevice device)
         {
             Platforms = new List<Platform>();
             Actors = new List<Actor>();
-
+            _layout = new LevelMap(device);
             //Platforms.Add(new Platform(new Rectangle(10, 10, 20, 60)));
-            Actors.Add(new Actor(new Rectangle(50, 50, 10, 10)));
+            Actors.Add(new Actor(new Rectangle(0, 0, 32, 32)));
         }
 
         public void LoadContent(ContentManager content)
         {
             _platformTexture = content.Load<Texture2D>("spark");
+            _playerSprite = content.Load<Texture2D>("player");
         }
         public void AddSolid(Platform platform)
         {
@@ -48,26 +50,14 @@ namespace pinball.Physics
             {
                 actor.ProcessInput(Keyboard.GetState());
                 actor.MoveX(duration);
-                foreach (Platform platform in Platforms)
+                int bound = _layout.SeekWallX(actor.BoundingBox.Center.X, new int[] { actor.BoundingBox.Center.Y }, actor.Velocity.X > 0);
+                int dir = actor.Velocity.X > 0 ? 1 : -1;
+                if (actor.Velocity.X != 0 && dir*bound <= dir*actor.FFEdgeX())
                 {
-                    if (platform.IsColliding(actor))
-                    {
-                        Debug.WriteLine("Collision detected");
-                        actor.Position.X = actor.Velocity.X < 0 ? platform.BoundingBox.Right + 1 : platform.BoundingBox.Left - 1;
-                        actor.Velocity.X = 0;
-                    }
+                    Debug.WriteLine("bound: " + bound.ToString());
+                    actor.SetPositionX(bound, actor.Velocity.X > 0);
+                    actor.Velocity.X = 0;
                 }
-                actor.MoveY(duration);
-                //foreach (Platform platform in Platforms)
-                //{
-                //    if (platform.IsColliding(actor))
-                //    {
-                //        Debug.WriteLine("Collision detected");
-                //        actor.Position.Y = actor.Velocity.Y < 0 ? platform.BoundingBox.Bottom : platform.BoundingBox.Top;
-                //        actor.Velocity.Y = 0;
-                //    }
-                //}
-
                 actor.Step(duration);
                 actor.Update();
 
@@ -76,9 +66,10 @@ namespace pinball.Physics
 
         public void Draw(SpriteBatch spriteBatch)
         {
+            _layout.Draw(spriteBatch);
             foreach (Actor actor in Actors)
             {
-                actor.Draw(spriteBatch, _platformTexture);
+                actor.Draw(spriteBatch, _playerSprite);
             }
             foreach (Platform platform in Platforms)
             {
@@ -93,6 +84,12 @@ namespace pinball.Physics
 
     public class LevelMap
     {
+        public enum Direction
+        {
+            Left,
+            Right,
+        }
+
         public int CellSize;
         public int Width;  // in cells
         public int Height;  // in cells
@@ -103,16 +100,48 @@ namespace pinball.Physics
         {
             Map = new int[4, 4]
             {
-                { 1, 0, 0, 1},
+                { 0, 0, 0, 1},
                 { 1, 1, 0, 1},
                 { 1, 0, 0, 1},
                 { 1, 1, 0, 0}, 
             };
             Width = 4;
             Height = 4;
-            CellSize = 50;
+            CellSize = 32;
             _texture = CreateTexture(device);
         }
+
+        public int SeekWallX(int worldX, int[] worldY, bool facingRight)
+        {
+            //return CellSize * 3;
+            int step = facingRight ? 1 : -1;
+            int gridX = worldX / CellSize;
+            int[] gridY = worldY.Select((index, el) => el / CellSize).ToArray();
+            //Debug.WriteLine("----");
+            //Debug.WriteLine(worldX.ToString());
+            //Debug.WriteLine(gridX.ToString());
+            //Debug.WriteLine(gridY[0].ToString());
+
+            while (gridX >= 0 && gridX < Width)
+            {
+                foreach (int y in gridY)
+                {
+                    if (Map[y, gridX] == 1)
+                    {
+                        Debug.WriteLine("grid pos: " + gridX.ToString() + ", "+ y.ToString());
+                        goto ConvertToWorld;
+                    }
+                }
+                gridX += step;
+            }
+        ConvertToWorld:
+            gridX = facingRight ? gridX : gridX + 1;
+            return gridX * CellSize;
+
+        }
+
+        //public int SeekWallY(int worldX)
+
 
         private Texture2D CreateTexture(GraphicsDevice device)
         {
@@ -126,7 +155,7 @@ namespace pinball.Physics
                 //the function applies the color according to the specified pixel
                 int x = pixel / (CellSize * Width) / CellSize;
                 int y = pixel % (CellSize * Width) / CellSize;
-                data[pixel] = Map[x, y] == 1 ? Color.Green : Color.Blue;
+                data[pixel] = Map[x, y] == 1 ? Color.White : Color.Black;
             }
             
 
@@ -162,7 +191,6 @@ namespace pinball.Physics
 
         public bool IsColliding(Actor actor)
         {
-            Debug.WriteLine("collision!");
             return BoundingBox.Intersects(actor.BoundingBox);
         }
 
@@ -175,22 +203,38 @@ namespace pinball.Physics
     public class Actor : Particle
     {
         public Rectangle BoundingBox;
-
+        public bool FacingRight;
         public Actor(Rectangle box) : base(1)
         {
             BoundingBox = box;
             Position = new Vector2(box.X, box.Y);
+            FacingRight = true;
         }
+
+
 
         public void Update()
         {
             BoundingBox.X = (int) Position.X;
-            BoundingBox.Y = (int)Position.Y;
+            BoundingBox.Y = (int) Position.Y;
+            
         }
+
 
         public void Draw(SpriteBatch spriteBatch, Texture2D platformTexture)
         {
             spriteBatch.Draw(platformTexture, BoundingBox, Color.White);
+        }
+
+
+        public int FFEdgeX()  // Forward-facing Edge
+        {
+            return Velocity.X > 0 ? BoundingBox.Right : BoundingBox.Left;
+        }
+
+        public int FFEdgeY()
+        {
+            return Velocity.Y > 0 ? BoundingBox.Bottom : BoundingBox.Top;
         }
 
         public void ProcessInput(KeyboardState keyState)
@@ -219,6 +263,12 @@ namespace pinball.Physics
             {
                 Velocity.Y = 0;
             }
+        }
+
+        public void SetPositionX(float x, bool setRight)
+        {
+            if (setRight) { Position.X = x - BoundingBox.Width; }
+            else { Position.X = x; }
         }
 
         public new void Step(float duration)

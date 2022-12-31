@@ -20,7 +20,6 @@ namespace pinball
         private float _leftAngle = MathHelper.ToRadians(RESTANGLE);
         private float _rightAngle = MathHelper.ToRadians(180 - RESTANGLE);
         private float _rotSpeed = MathHelper.ToRadians(30);
-        private LevelMap _levelMap;
         private Level _level;
 
         private KeyboardState _prevKeyState;
@@ -39,8 +38,7 @@ namespace pinball
         {
             // TODO: Add your initialization logic here
             _prevKeyState = Keyboard.GetState();
-            _level = new Level();
-            _levelMap = new LevelMap(GraphicsDevice);
+            _level = new Level(GraphicsDevice);
             Window.Title = "Collision";
             base.Initialize();
         }
@@ -119,7 +117,6 @@ namespace pinball
             // TODO: Add your drawing code here
             _spriteBatch.Begin();
             _level.Draw(_spriteBatch);
-            _levelMap.Draw(_spriteBatch);
             //_spriteBatch.Draw(_ballTexture, new Rectangle(0, 0, 64, 64), Color.White);
             //_spriteBatch.Draw(_flipperTexture, new Rectangle(100, 100, 128, 31), null, Color.White, _leftAngle, new Vector2(12, 16), SpriteEffects.None, 1);
             //_spriteBatch.Draw(_flipperTexture, new Rectangle(400, 100, 128, 31), null, Color.White, _rightAngle, new Vector2(12, 16), SpriteEffects.None, 1);
