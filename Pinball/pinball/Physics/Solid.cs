@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -14,28 +15,19 @@ namespace pinball.Physics
 
     public class Level
     {
-        public List<Platform> Platforms;
         public List<Actor> Actors;
-        private Texture2D _platformTexture;
         private LevelMap _layout;
         private Texture2D _playerSprite;
         public Level(GraphicsDevice device)
         {
-            Platforms = new List<Platform>();
             Actors = new List<Actor>();
             _layout = new LevelMap(device);
-            //Platforms.Add(new Platform(new Rectangle(10, 10, 20, 60)));
-            Actors.Add(new Actor(new Rectangle(0, 0, 32, 32)));
+            Actors.Add(new Actor(new Rectangle(0, 0, 16, 16)));
         }
 
         public void LoadContent(ContentManager content)
         {
-            _platformTexture = content.Load<Texture2D>("spark");
             _playerSprite = content.Load<Texture2D>("player");
-        }
-        public void AddSolid(Platform platform)
-        {
-            Platforms.Add(platform);
         }
 
         public void AddActor(Actor actor)
@@ -45,21 +37,17 @@ namespace pinball.Physics
 
         public void Update(float duration)
         {
-
+            KeyboardState keyState = Keyboard.GetState();
             foreach (Actor actor in Actors)
             {
-                actor.ProcessInput(Keyboard.GetState());
-                actor.MoveX(duration);
-                int bound = _layout.SeekWallX(actor.BoundingBox.Center.X, new int[] { actor.BoundingBox.Center.Y }, actor.Velocity.X > 0);
-                int dir = actor.Velocity.X > 0 ? 1 : -1;
-                if (actor.Velocity.X != 0 && dir*bound <= dir*actor.FFEdgeX())
+                actor.ProcessInput(keyState);
+                float xDist = _layout.DistanceToWall(actor.ForwardEdgeX, actor.BoundingBox.Top, actor.BoundingBox.Bottom, actor.Velocity.X > 0, LevelMap.Axis.X);
+                //Debug.WriteLine("xdist: " + xDist.ToString());
+                if (Math.Abs(xDist) < Math.Abs(actor.Velocity.X))
                 {
-                    Debug.WriteLine("bound: " + bound.ToString());
-                    actor.SetPositionX(bound, actor.Velocity.X > 0);
-                    actor.Velocity.X = 0;
+                    actor.Velocity.X = xDist;
                 }
-                actor.Step(duration);
-                actor.Update();
+                actor.BoundingBox.X += (int) actor.Velocity.X;
 
             }
         }
@@ -71,37 +59,29 @@ namespace pinball.Physics
             {
                 actor.Draw(spriteBatch, _playerSprite);
             }
-            foreach (Platform platform in Platforms)
-            {
-                platform.Draw(spriteBatch, _platformTexture);
-            }
         }
-    }
-    public interface Solid
-    {
-
     }
 
     public class LevelMap
     {
-        public enum Direction
-        {
-            Left,
-            Right,
-        }
-
         public int CellSize;
         public int Width;  // in cells
         public int Height;  // in cells
         public int[,] Map;
         private Texture2D _texture;
 
+        public enum Axis
+        {
+            X,
+            Y,
+        }
+
         public LevelMap(GraphicsDevice device)
         {
             Map = new int[4, 4]
             {
                 { 0, 0, 0, 1},
-                { 1, 1, 0, 1},
+                { 0, 1, 0, 1},
                 { 1, 0, 0, 1},
                 { 1, 1, 0, 0}, 
             };
@@ -111,37 +91,48 @@ namespace pinball.Physics
             _texture = CreateTexture(device);
         }
 
-        public int SeekWallX(int worldX, int[] worldY, bool facingRight)
+        public float DistanceToWallX(int worldX, int worldYStart, int worldYEnd, bool facingRight)
         {
-            //return CellSize * 3;
+            int x = worldX / CellSize;
+            int yStart = worldYStart / CellSize;
+            int yEnd = worldYEnd / CellSize;
             int step = facingRight ? 1 : -1;
-            int gridX = worldX / CellSize;
-            int[] gridY = worldY.Select((index, el) => el / CellSize).ToArray();
-            //Debug.WriteLine("----");
-            //Debug.WriteLine(worldX.ToString());
-            //Debug.WriteLine(gridX.ToString());
-            //Debug.WriteLine(gridY[0].ToString());
 
-            while (gridX >= 0 && gridX < Width)
+            while (x >= 0 && x < Width)
             {
-                foreach (int y in gridY)
+                for(int y = yStart; y <= yEnd; y++)
                 {
-                    if (Map[y, gridX] == 1)
-                    {
-                        Debug.WriteLine("grid pos: " + gridX.ToString() + ", "+ y.ToString());
-                        goto ConvertToWorld;
-                    }
+                    if (Map[y, x] == 1) { goto ConvertToWorldCoord; }
                 }
-                gridX += step;
+                x += step;
             }
-        ConvertToWorld:
-            gridX = facingRight ? gridX : gridX + 1;
-            return gridX * CellSize;
 
+        ConvertToWorldCoord:
+            x = facingRight ? x : x + 1;
+            return x * CellSize - worldX;
         }
 
-        //public int SeekWallY(int worldX)
+        public float DistanceToWall(int worldCross, int worldStart, int worldEnd, bool seekPositive, Axis movementAxis)
+        {
+            int cross = worldCross / CellSize;
+            int start = worldStart / CellSize;
+            int end = worldEnd / CellSize;
+            int step = seekPositive ? 1 : -1;
+            int limit = movementAxis == Axis.X ? Width : Height;
 
+            while (cross >=0 && cross < Width)
+            {
+                for (int i = start; i <= end; i++)
+                {
+                    if (movementAxis == Axis.X && Map[i, cross] == 1) { goto ConvertToWorldCoord; }
+                    if (movementAxis == Axis.Y && Map[cross, i] == 1) { goto ConvertToWorldCoord; }
+                }
+                cross += step;
+            }
+        ConvertToWorldCoord:
+            cross = seekPositive ? cross : cross + 1;
+            return cross * CellSize - worldCross;
+        }
 
         private Texture2D CreateTexture(GraphicsDevice device)
         {
@@ -180,45 +171,18 @@ namespace pinball.Physics
         }
     }
 
-    public class Platform
+
+    public class Actor
     {
         public Rectangle BoundingBox;
 
-        public Platform(Rectangle boundingBox)
+        public Vector2 Velocity;
+        public Actor(Rectangle box)
         {
-            BoundingBox = boundingBox;
-        }
-
-        public bool IsColliding(Actor actor)
-        {
-            return BoundingBox.Intersects(actor.BoundingBox);
-        }
-
-        public void Draw(SpriteBatch spriteBatch, Texture2D platformTexture)
-        {
-            spriteBatch.Draw(platformTexture, BoundingBox, Color.BurlyWood);
-        }
-    }
-
-    public class Actor : Particle
-    {
-        public Rectangle BoundingBox;
-        public bool FacingRight;
-        public Actor(Rectangle box) : base(1)
-        {
+            Velocity = Vector2.Zero;
             BoundingBox = box;
-            Position = new Vector2(box.X, box.Y);
-            FacingRight = true;
         }
 
-
-
-        public void Update()
-        {
-            BoundingBox.X = (int) Position.X;
-            BoundingBox.Y = (int) Position.Y;
-            
-        }
 
 
         public void Draw(SpriteBatch spriteBatch, Texture2D platformTexture)
@@ -226,26 +190,26 @@ namespace pinball.Physics
             spriteBatch.Draw(platformTexture, BoundingBox, Color.White);
         }
 
-
-        public int FFEdgeX()  // Forward-facing Edge
+        public void SetX(float x, bool setRight)
         {
-            return Velocity.X > 0 ? BoundingBox.Right : BoundingBox.Left;
+            BoundingBox.X = (int) (setRight ? x - BoundingBox.Width : x);
         }
 
-        public int FFEdgeY()
+        public int ForwardEdgeX
         {
-            return Velocity.Y > 0 ? BoundingBox.Bottom : BoundingBox.Top;
+            get { return Velocity.X > 0 ? BoundingBox.Right : BoundingBox.Left; }
         }
+
 
         public void ProcessInput(KeyboardState keyState)
         {
             if (keyState.IsKeyDown(Keys.J))
             {
-                Velocity.X = -10;
+                Velocity.X = -1;
             }
             else if (keyState.IsKeyDown(Keys.L))
             {
-                Velocity.X = 10;
+                Velocity.X = 1;
             }
             else
             {
@@ -253,11 +217,11 @@ namespace pinball.Physics
             }
             if (keyState.IsKeyDown(Keys.I))
             {
-                Velocity.Y = -10;
+                Velocity.Y = -1;
             }
             else if (keyState.IsKeyDown(Keys.K))
             {
-                Velocity.Y = 10;
+                Velocity.Y = 1;
             }
             else
             {
@@ -265,26 +229,6 @@ namespace pinball.Physics
             }
         }
 
-        public void SetPositionX(float x, bool setRight)
-        {
-            if (setRight) { Position.X = x - BoundingBox.Width; }
-            else { Position.X = x; }
-        }
-
-        public new void Step(float duration)
-        {
-            Velocity = MathF.Pow(Damping, duration) * Velocity + Acceleration * duration;
-        }
-
-        public void MoveX(float duration)
-        {
-            Position.X += Velocity.X * duration;
-        }
-
-        public void MoveY(float duration)
-        {
-            Position.Y += Velocity.Y * duration;
-        }
         //public void IsRiding(Solid solid);
         //public void SetRiding(Solid solid, bool isRiding);
 
